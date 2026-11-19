@@ -1,0 +1,22 @@
+# Builds, tests and packages the mod on every push and pull request with HMG-API's reusable
+# mod workflow, against the HMG-API mod SDK that hmgapi-sdk.json pins. The run's
+# "mod-test-packages" artifact has the HMG-API package and the NEMESIS package, signed with
+# a throwaway key: fine to try on a car, but each run's key differs, so HMG-API won't update
+# one with the next (remove it first). Releases are signed with your own key (release.yml).
+#
+# The pin and the workflow ref below move together: the same HMG-API commit SHA (before
+# HMG-API 1.1.0 is out), or {"version": "1.1.0", "sha256": "..."} and @v1.1.0 after.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mod:
+    uses: Open-HMG/HMG-API/.github/workflows/mod.yml@dbad2efea320ae7c380c99cd7fc5b0d31a1c43dc

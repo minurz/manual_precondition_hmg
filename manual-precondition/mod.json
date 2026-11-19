@@ -1,0 +1,43 @@
+{
+  "id": "manual-precondition",
+  "name": "Manual Preconditioning",
+  "version": "0.1.0",
+  "hmgapi": ">=1.0.0",
+  "authors": ["YOUR-NAME"],
+  "license": "AGPL-3.0",
+  "repo": "https://github.com/minurz/hmgapi-manual-precondition",
+  "description": "Start and stop battery conditioning by hand, without a navigation route: from an app-menu tile, by holding the TUNE knob, or from a star key. Uses HMG-API's reviewed conditioning command and its checks (READY, the car's Battery Conditioning setting, a warm pack, a 2-minute activation timeout; 5 minutes on the EV6). Made for the Ioniq 6 (CEEV) on 260903; also offered on the other E-GMP head units HMG-API maps.",
+  "system": { "model": ["CEEV", "NEEV", "NEEV23", "NEEV23SE", "CVEV"] },
+  "live": true,
+  "apps": [
+    { "apk": "app/ManualPrecondition.apk", "package": "dev.manualprecond" }
+  ],
+  "provides": {
+    "launcher": [
+      {
+        "package": "dev.manualprecond",
+        "class": ".MainActivity",
+        "title": "Precondition",
+        "icon": "icons/icon.png",
+        "icon_night": "icons/icon_night.png",
+        "icon_disabled": "icons/icon_disabled.png",
+        "icon_disabled_night": "icons/icon_disabled_night.png"
+      }
+    ],
+    "star_key": [
+      { "id": "toggle", "title": "Battery conditioning: start / stop", "broadcast": "dev.manualprecond.TOGGLE" },
+      { "id": "open", "title": "Battery conditioning: open", "activity": { "package": "dev.manualprecond", "class": ".MainActivity" } }
+    ]
+  },
+  "input": [
+    { "key": "tune_enter", "press": "hold", "when": "settings.tune_hold=open", "open": "dev.manualprecond/.MainActivity" },
+    { "key": "tune_enter", "press": "hold", "when": "settings.tune_hold=toggle", "broadcast": "dev.manualprecond.TOGGLE" },
+    { "key": "wheel_custom", "press": "hold", "when": "settings.wheel_star_hold=open", "open": "dev.manualprecond/.MainActivity" },
+    { "key": "wheel_custom", "press": "hold", "when": "settings.wheel_star_hold=toggle", "broadcast": "dev.manualprecond.TOGGLE" }
+  ],
+  "vehicle": {
+    "read": ["hv.ready", "hv.conditioning", "hv.conditioning_active", "hv.battery_temp_min",
+             "hv.conditioning_failure", "conditioning.state", "hv.soc", "gear.park"],
+    "commands": ["conditioning"]
+  }
+}

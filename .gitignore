@@ -1,0 +1,5 @@
+out/
+.hmgapi/
+*.key
+*.key.pub
+*.p12

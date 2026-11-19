@@ -1,0 +1,134 @@
+# Builds the mod for a release made in GitHub's UI, signs it with your HMG-API author key and
+# attaches the HMG-API package and the NEMESIS packages:
+#   Releases -> Draft a new release -> tag v<version> (the "version" in manual-precondition/mod.json)
+#   -> Publish. To build again for an existing release: Actions -> Release -> Run workflow, with its tag.
+#
+# Needs the repository secret HMGAPI_AUTHOR_KEY: the contents of your author key file, made once with
+#   java -cp "$HMGAPI_SDK/lib/hmgapi-engine.jar" hmgapi.engine.Signing keygen author.key
+# Every version must be signed with the same key, or HMG-API won't update the installed mod.
+# Keep the key out of the repository.
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach to (v<version>)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  MOD: manual-precondition
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The tag is the mod's version
+        id: version
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          v=$(python3 -c 'import json,os; print(json.load(open(os.environ["MOD"] + "/mod.json"))["version"])')
+          [ "v$v" = "$TAG" ] || { echo "::error::release tag $TAG isn't v$v, the version in $MOD/mod.json"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Tools and the Android SDK (build-tools with d8, aapt2, a platform android.jar)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq clang lld zip unzip
+          ls "$ANDROID_HOME"/build-tools/*/d8 >/dev/null 2>&1 && ls "$ANDROID_HOME"/platforms/android-*/android.jar >/dev/null 2>&1 \
+            || yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0" "platforms;android-35" >/dev/null
+
+      - name: Which SDK (hmgapi-sdk.json)
+        id: pin
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'PY'
+          import json, re, sys
+          p = json.load(open("hmgapi-sdk.json"))
+          if set(p) == {"ref"} and re.fullmatch(r"[0-9a-f]{40}", p["ref"]):
+              print("form=ref\nref=%s" % p["ref"])
+          elif set(p) == {"version", "sha256"}:
+              print("form=release\nversion=%s\nsha256=%s" % (p["version"], p["sha256"]))
+          else:
+              sys.exit('hmgapi-sdk.json: {"ref": "<40-hex SHA>"} or {"version": ..., "sha256": ...}')
+          PY
+
+      - name: HMG-API at the pinned commit
+        if: steps.pin.outputs.form == 'ref'
+        uses: actions/checkout@v4
+        with:
+          repository: Open-HMG/HMG-API
+          ref: ${{ steps.pin.outputs.ref }}
+          path: .hmgapi-src
+          persist-credentials: false
+
+      - name: The SDK
+        env:
+          FORM: ${{ steps.pin.outputs.form }}
+          VERSION: ${{ steps.pin.outputs.version }}
+          SHA256: ${{ steps.pin.outputs.sha256 }}
+        run: |
+          S="$RUNNER_TEMP/hmgapi-sdk"
+          if [ "$FORM" = ref ]; then
+            (cd .hmgapi-src && ./build.sh sdk)
+            Z=$(ls .hmgapi-src/out/dist/hmgapi-mod-sdk-*.zip)
+          else
+            Z="$RUNNER_TEMP/hmgapi-mod-sdk-$VERSION.zip"
+            curl -fsSL -o "$Z" "https://github.com/Open-HMG/HMG-API/releases/download/v$VERSION/hmgapi-mod-sdk-$VERSION.zip"
+            echo "$SHA256  $Z" | sha256sum -c - || { echo "the SDK zip isn't the one hmgapi-sdk.json pins"; exit 1; }
+          fi
+          rm -rf "$S" && mkdir -p "$S" && unzip -q "$Z" -d "$S"
+          rm -rf .hmgapi-src
+          echo "HMGAPI_SDK=$S" >> "$GITHUB_ENV"
+
+      - name: Build and test
+        run: |
+          sh "$HMGAPI_SDK/bin/build-mod.sh" "$MOD" "out/build/$MOD" "out/work/$MOD"
+          HMGAPI_MOD_BUILD="$PWD/out/build/$MOD" sh "$MOD/test.sh"
+
+      - name: Signed packages
+        env:
+          AUTHOR_KEY: ${{ secrets.HMGAPI_AUTHOR_KEY }}
+        run: |
+          [ -n "$AUTHOR_KEY" ] || { echo "::error::the HMGAPI_AUTHOR_KEY secret isn't set (Settings -> Secrets and variables -> Actions)"; exit 1; }
+          umask 077
+          printf '%s\n' "$AUTHOR_KEY" > "$RUNNER_TEMP/author.key"
+          # HMG-API's signer wants the public key beside it (<key>.pub): derived from the private one
+          base64 -d < "$RUNNER_TEMP/author.key" | openssl pkey -inform DER -pubout -outform DER | base64 -w0 > "$RUNNER_TEMP/author.key.pub"
+          echo >> "$RUNNER_TEMP/author.key.pub"
+          out=$(HMGAPI_MOD_BUILD="$PWD/out/build/$MOD" sh "$HMGAPI_SDK/bin/mkmodpkg.sh" "$MOD" "$RUNNER_TEMP/author.key")
+          rm -f "$RUNNER_TEMP/author.key" "$RUNNER_TEMP/author.key.pub"
+          echo "$out"
+          sh "$HMGAPI_SDK/bin/mknemesismod.sh" "$(echo "$out" | tail -1)"
+          ls -l out/packages out/dist
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: gh release upload "$TAG" --clobber out/packages/*.zip out/dist/*.zip
