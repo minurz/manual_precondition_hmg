@@ -68,16 +68,14 @@ the most common reason the car doesn't heat.
 
 The APK is built by HMG-API's own build, with Google's Android SDK, on GitHub Actions:
 
-1. Put this folder in a GitHub repository of yours. In `manual-precondition/mod.json`,
-   replace `YOUR-NAME` (authors, repo).
-2. Push. The **CI** workflow (HMG-API's reusable mod workflow) builds the APK, runs
+1. Push. The **CI** workflow (HMG-API's reusable mod workflow) builds the APK, runs
    `manual-precondition/test.sh`, and uploads **mod-test-packages**:
    - `manual-precondition-0.1.0.zip`: the HMG-API package, for a USB stick's `HMGAPI/updates/`
      or adb;
    - `manual-precondition-0.1.0-nemesis.zip`: unzip it onto an empty stick for NEMESIS.
 
    These are signed with a throwaway key. Remove the mod before installing a later test build.
-3. For releases you can update in place, make an author key once:
+2. For releases you can update in place, make an author key once:
    `java -cp "$HMGAPI_SDK/lib/hmgapi-engine.jar" hmgapi.engine.Signing keygen author.key`.
    Store its contents as the repository secret `HMGAPI_AUTHOR_KEY`, then publish a GitHub
    release tagged `v0.1.0`. The **Release** workflow signs the packages and attaches them.
