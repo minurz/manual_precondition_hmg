@@ -15,6 +15,11 @@ R=$T/root
 . "${HMGAPI_SDK:?set HMGAPI_SDK to the unpacked mod SDK}/test/lib.sh"
 
 APK=$B/app/ManualPrecondition.apk
+# the version: mod.json's, which the app's versionName must match (bump versionCode with it)
+V=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$HERE/mod.json" | head -1)
+check "mod.json has a version" yes "$([ -n "$V" ] && echo yes)"
+check "the app's versionName is mod.json's version" "$V" \
+    "$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' "$HERE/app/AndroidManifest.xml")"
 check "built: the APK is there" yes "$([ -f "$APK" ] && echo yes)"
 unzip -p "$APK" classes.dex > $T/classes.dex
 for c in dev/manualprecond/MainActivity dev/manualprecond/ToggleReceiver dev/manualprecond/WatchService \
@@ -26,6 +31,7 @@ done
 mkdir -p $T/mod
 cp -r "$HERE" $T/mod/manual-precondition
 rm -rf $T/mod/manual-precondition/app && mkdir -p $T/mod/manual-precondition/app && cp "$APK" $T/mod/manual-precondition/app/
+rm -f $T/mod/manual-precondition/test.sh   # not packaged (mkmodpkg.sh leaves it out too)
 
 # signed with a throwaway key, as a package from an author HMG-API doesn't know yet
 java -cp "$ENGINE" hmgapi.engine.Signing keygen $T/test.key >/dev/null
@@ -38,7 +44,7 @@ printf 'ro.board.platform=tcc803x\n' > $R/props.txt
 # HMGAPI_PRODUCT at install (the SDK's HMGAPI_TEST_ANY_CAR only skips the hook map; it has no hooks).
 export HMGAPI_PRODUCT=CEEV.USA.0000.V016.010.260903
 eng install $T/mod/manual-precondition; check "install on an Ioniq 6 260903" 0 $rc
-has "... installed" "installed manual-precondition 0.1.0" "$out"
+has "... installed" "installed manual-precondition $V " "$out"
 eng plan; check "plan" 0 $rc
 eng apply; check "apply" 0 $rc
 has "published as on" "1 of 1 mods on" "$out"
