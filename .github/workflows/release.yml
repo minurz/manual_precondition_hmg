@@ -106,6 +106,21 @@ jobs:
           rm -rf .hmgapi-src
           echo "HMGAPI_SDK=$S" >> "$GITHUB_ENV"
 
+      # The app inside the mod must be signed with the same key every release: Android won't
+      # update an app with one signed by another key (INSTALL_FAILED_UPDATE_INCOMPATIBLE), and
+      # HMG-API then keeps the old app while the rest of the mod updates. Without this key the
+      # SDK's build-mod.sh makes a new one each run, so every release's app would be refused.
+      - name: The app's signing key
+        env:
+          APP_KEY_P12: ${{ secrets.HMGAPI_APP_KEY_P12 }}
+        run: |
+          [ -n "$APP_KEY_P12" ] || { echo "::error::the HMGAPI_APP_KEY_P12 secret isn't set (see the README: Getting the package)"; exit 1; }
+          umask 077
+          printf '%s' "$APP_KEY_P12" | base64 -d > "$RUNNER_TEMP/app.p12"
+          keytool -list -keystore "$RUNNER_TEMP/app.p12" -storetype pkcs12 -storepass example >/dev/null \
+            || { echo "::error::HMGAPI_APP_KEY_P12 isn't a PKCS#12 keystore with the password \"example\" (the one build-mod.sh uses)"; exit 1; }
+          echo "HMGAPI_APP_KEY=$RUNNER_TEMP/app.p12" >> "$GITHUB_ENV"
+
       - name: Build and test
         run: |
           sh "$HMGAPI_SDK/bin/build-mod.sh" "$MOD" "out/build/$MOD" "out/work/$MOD"
