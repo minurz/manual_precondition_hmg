@@ -1,12 +1,14 @@
 package dev.manualprecond;
 
 import android.app.Activity;
+import android.database.ContentObserver;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -37,6 +39,23 @@ public class MainActivity extends Activity {
     private String units = "both";
     private Precond.Status last;
 
+    /**
+     * The car draws its split-screen panel over the right of the screen without resizing
+     * this window (Launchpad's SplitScreen: Settings.System split_screen_status is 1 while
+     * the panel is open; it covers about 29% of the width, so a third is kept clear), and
+     * the panel's handle sits on the right edge even when it's closed (Launchpad keeps 64 dp).
+     */
+    static final String SPLIT_SETTING = "split_screen_status";
+    static final int HANDLE_DP = 64;
+    private FitFrame fit;
+    private boolean splitObserved;
+    private final ContentObserver splitChanges = new ContentObserver(ui) {
+        @Override
+        public void onChange(boolean selfChange) {
+            applySplit();
+        }
+    };
+
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
@@ -56,6 +75,13 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         shown = true;
+        try {
+            getContentResolver().registerContentObserver(Settings.System.getUriFor(SPLIT_SETTING), false, splitChanges);
+            splitObserved = true;
+        } catch (SecurityException e) {
+            splitObserved = false;
+        }
+        applySplit();
         worker.execute(new Runnable() {
             @Override
             public void run() {
@@ -77,6 +103,10 @@ public class MainActivity extends Activity {
     protected void onPause() {
         shown = false;
         ui.removeCallbacks(tick);
+        if (splitObserved) {
+            getContentResolver().unregisterContentObserver(splitChanges);
+            splitObserved = false;
+        }
         super.onPause();
     }
 
@@ -84,6 +114,19 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         worker.shutdownNow();
         super.onDestroy();
+    }
+
+    /** pads the screen clear of the split-screen panel (when it's open) and its handle */
+    private void applySplit() {
+        int split = 0;
+        try {
+            split = Settings.System.getInt(getContentResolver(), SPLIT_SETTING, 0);
+        } catch (Exception e) {
+            split = 0;
+        }
+        android.util.DisplayMetrics m = getResources().getDisplayMetrics();
+        int right = split == 1 ? Math.round(m.widthPixels / 3f) : Math.round(HANDLE_DP * m.density);
+        if (fit.getPaddingRight() != right) fit.setPadding(0, 0, right, 0);
     }
 
     private void refresh() {
@@ -281,7 +324,7 @@ public class MainActivity extends Activity {
         rp.gravity = Gravity.CENTER_VERTICAL;
         root.addView(right, rp);
 
-        FitFrame fit = new FitFrame(this);
+        fit = new FitFrame(this);
         fit.setBackgroundColor(BG);
         fit.addView(root);
         return fit;

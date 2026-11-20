@@ -6,7 +6,8 @@ import android.view.ViewGroup;
 
 /**
  * Lays its one child out on a fixed design canvas and scales it, uniformly, to fit the
- * space the window actually gets. MainActivity sizes everything in canvas pixels, so
+ * space the window actually gets, less this view's padding (MainActivity pads it clear of
+ * what the car draws over the window: the split-screen panel and its handle). MainActivity sizes everything in canvas pixels, so
  * the screen looks the same whatever the head unit's density, font scale, status bar or
  * dock: nothing can be pushed off the edge or under another panel.
  *
@@ -22,9 +23,10 @@ final class FitFrame extends ViewGroup {
 
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
-        int w = MeasureSpec.getSize(wSpec), h = MeasureSpec.getSize(hSpec);
-        setMeasuredDimension(w, h);
-        if (getChildCount() == 0 || w == 0 || h == 0) return;
+        setMeasuredDimension(MeasureSpec.getSize(wSpec), MeasureSpec.getSize(hSpec));
+        int w = MeasureSpec.getSize(wSpec) - getPaddingLeft() - getPaddingRight(),
+                h = MeasureSpec.getSize(hSpec) - getPaddingTop() - getPaddingBottom();
+        if (getChildCount() == 0 || w <= 0 || h <= 0) return;
         int[] d = design(w, h);
         getChildAt(0).measure(MeasureSpec.makeMeasureSpec(d[0], MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(d[1], MeasureSpec.EXACTLY));
@@ -33,8 +35,8 @@ final class FitFrame extends ViewGroup {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if (getChildCount() == 0) return;
-        int w = r - l, h = b - t;
-        if (w == 0 || h == 0) return;
+        int w = r - l - getPaddingLeft() - getPaddingRight(), h = b - t - getPaddingTop() - getPaddingBottom();
+        if (w <= 0 || h <= 0) return;
         int[] d = design(w, h);
         float s = Math.min(w / (float) d[0], h / (float) d[1]);
         View c = getChildAt(0);
@@ -43,8 +45,8 @@ final class FitFrame extends ViewGroup {
         c.setPivotY(0);
         c.setScaleX(s);
         c.setScaleY(s);
-        c.setTranslationX((w - d[0] * s) / 2f);   // centred if the window is narrower than the minimum shape
-        c.setTranslationY((h - d[1] * s) / 2f);
+        c.setTranslationX(getPaddingLeft() + (w - d[0] * s) / 2f);   // centred in what the padding leaves
+        c.setTranslationY(getPaddingTop() + (h - d[1] * s) / 2f);
     }
 
     /** the canvas for a w x h window: DESIGN_H tall unless the window is too narrow for MIN_DESIGN_W */
