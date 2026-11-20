@@ -199,7 +199,7 @@ public class MainActivity extends Activity {
             public void run() {
                 String ok = null, why = null;
                 try {
-                    ok = Precond.start(warm);
+                    ok = Precond.start(warm, "screen");
                 } catch (Exception e) {
                     why = Precond.reason(e);
                 }
@@ -236,7 +236,7 @@ public class MainActivity extends Activity {
                 String r;
                 int c;
                 try {
-                    Precond.stop();
+                    Precond.stop("screen");
                     r = "Stopped";
                     c = TEXT;
                 } catch (Exception e) {

@@ -33,6 +33,7 @@ public class ToggleReceiver extends BroadcastReceiver {
     static void toggle(Context c) {
         Precond.Status s = Precond.read();
         if (s.error != null) {
+            Precond.warn("button or star key: nothing sent, HMG-API didn't answer (" + s.error + ")");
             HmgApi.toast(c, "Precondition: HMG-API didn't answer (" + s.error + ")");
             return;
         }
@@ -42,7 +43,7 @@ public class ToggleReceiver extends BroadcastReceiver {
         }
         if (s.requestRunning()) {
             try {
-                Precond.stop();
+                Precond.stop("button or star key");
                 HmgApi.toast(c, "Battery conditioning stopped");
             } catch (Exception e) {
                 HmgApi.toast(c, "Couldn't stop battery conditioning: " + Precond.reason(e));
@@ -50,12 +51,13 @@ public class ToggleReceiver extends BroadcastReceiver {
             return;
         }
         if (s.carOnItsOwn()) {
+            Precond.log("button or star key: nothing sent, the car is already conditioning on its own: " + Precond.snapshot(s));
             HmgApi.toast(c, "The car is already conditioning on its own (its navigation started it)");
             return;
         }
         boolean warm = Precond.takeWarmConfirm(c);
         try {
-            Precond.start(warm);
+            Precond.start(warm, "button or star key");
             HmgApi.toast(c, "Battery conditioning requested" + (warm ? " (pack is warm: sent anyway)" : "")
                     + ". The car usually confirms within " + (Precond.timeoutMinutes() == 5 ? "5 minutes" : "about a minute"));
             WatchService.watch(c);
