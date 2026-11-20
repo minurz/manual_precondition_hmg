@@ -1,7 +1,7 @@
 {
   "id": "manual-precondition",
   "name": "Manual Preconditioning",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "hmgapi": ">=1.0.0",
   "authors": ["minurz"],
   "license": "AGPL-3.0",

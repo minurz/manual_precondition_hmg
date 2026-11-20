@@ -23,8 +23,10 @@ import hmgapi.client.HmgApi;
  * conditioning when an Android Auto route starts guiding (seen on an Ioniq 6, CAN 260206,
  * with every other mod's part in it turned off). When the car ends it within 5 minutes of
  * switching it on (8 on the EV6), with the pack still below HMG-API's warm limit and the
- * BMS's failure flag clear, this waits {@link Precond#RESTART_DELAY_MS} and sends one new
- * start, with its own notice saying why; then follows that one. Once per press.
+ * BMS's failure flag clear, this says so, waits {@link Precond#RESTART_DELAY_MS} (20 s),
+ * and sends one new start with its own notice; then follows that one. Once per press. If
+ * egmp-aa-ev (or another mod) takes conditioning over during the wait, for an Android Auto
+ * route to a charger, this leaves it to it and says so.
  *
  * Polls every 3 s until the car answers (at most 6 minutes, past HMG-API's longest timeout:
  * 5 minutes on the EV6), then every 10 s while conditioning runs (at most an hour). A newer
@@ -96,32 +98,43 @@ public class WatchService extends IntentService {
     }
 
     /**
-     * The car ended conditioning early with the pack still cold: wait, check the car again,
-     * send one new start and say so. The watch for it, or null when it wasn't sent (a newer
-     * press, the car not ready for it, or HMG-API refusing; each one logged, and the last two
-     * shown, since they replace the "car ended it" notice).
+     * The car ended conditioning early with the pack still cold: say so, wait, and send one
+     * new start, unless another mod takes conditioning over first. egmp-aa-ev does that for
+     * an Android Auto route to a fast charger, with the charger's real distance and time; a
+     * restart of ours would then hold conditioning and refuse its route values. Checked every
+     * {@link Precond#RESTART_CHECK_MS} through the wait and once more before the start. The
+     * watch for the new start, or null when it wasn't sent (each reason logged and shown).
      */
     private Precond.Watch restart(Precond.Watch ended, int mine) {
-        long onFor = (ended.endedAt - ended.activeAt) / 1000;
-        Precond.log("the car ended it " + onFor + " s after it came on, with the pack cold: starting it again in "
-                + Precond.RESTART_DELAY_MS / 1000 + " s (setting \"Start again when a route cancels it\")");
-        SystemClock.sleep(Precond.RESTART_DELAY_MS);
-        if (GENERATION.get() != mine) {
-            Precond.log("not started again: a newer start or stop came first");
-            return null;
+        long onFor = (ended.endedAt - ended.activeAt) / 1000, wait = Precond.RESTART_DELAY_MS / 1000;
+        Precond.log("the car ended it " + onFor + " s after it came on, with the pack cold: starting it again in " + wait
+                + " s unless another mod (" + Precond.EGMP + ") takes it over (setting \"Start again when a route cancels it\")");
+        HmgApi.toast(this, "The car cancelled battery conditioning after " + onFor + " s (a route starting can do that). Starting it again in "
+                + wait + " s, unless Android Auto's EV routing takes over");
+
+        long until = SystemClock.elapsedRealtime() + Precond.RESTART_DELAY_MS;
+        while (true) {
+            if (GENERATION.get() != mine) {
+                Precond.log("not started again: a newer start or stop came first");
+                return null;
+            }
+            if (tookOver(SystemClock.elapsedRealtime() - (until - Precond.RESTART_DELAY_MS))) return null;
+            long left = until - SystemClock.elapsedRealtime();
+            if (left <= 0) break;
+            SystemClock.sleep(Math.min(Precond.RESTART_CHECK_MS, left));
         }
+
         Precond.Status s = Precond.read();
         String blocker = s.error != null ? "HMG-API didn't answer (" + s.error + ")"
-                : s.requestRunning() ? "a request is already running (" + s.state + ")"
                 : s.indicator == 1 ? "the car is already conditioning on its own"
                 : null;
         if (blocker != null) {
             Precond.log("not started again: " + blocker);
-            HmgApi.toast(this, "The car cancelled battery conditioning; not started again: " + blocker);
+            HmgApi.toast(this, "Battery conditioning wasn't started again: " + blocker);
             return null;
         }
         try {
-            Precond.start(false, "automatic restart, after the car ended it " + onFor + " s after it came on");
+            Precond.start(false, "automatic restart, " + wait + " s after the car ended it " + onFor + " s after it came on");
         } catch (Exception e) {
             String why = Precond.reason(e);   // Precond.start logged it
             HmgApi.toast(this, "The car cancelled battery conditioning, and starting it again didn't work: " + why);
@@ -131,5 +144,35 @@ public class WatchService extends IntentService {
                 + " s (a route starting can do that), with the battery still cold ("
                 + Precond.temperature(s.tempC, Precond.units(Precond.settings())) + ")");
         return new Precond.Watch(SystemClock.elapsedRealtime(), true);
+    }
+
+    /**
+     * True (logged and shown) when a request of another mod's is running: it has
+     * conditioning now, and a start of ours would only be answered "already conditioning".
+     * HMG-API's status says who; if it can't, the conditioning.state reading says whether.
+     */
+    private boolean tookOver(long waited) {
+        String state, holder;
+        try {
+            String[] st = Precond.status();
+            state = st[0];
+            holder = st[1];
+        } catch (Exception e) {
+            Precond.Status s = Precond.read();
+            if (s.error != null || !s.requestRunning()) return false;
+            state = s.state;
+            holder = null;
+        }
+        boolean running = "waiting".equals(state) || "active".equals(state) || "requested".equals(state);
+        if (!running || Precond.MOD_ID.equals(holder)) return false;
+        String who = holder == null ? "another mod" : Precond.holderName(holder);
+        Precond.log("not started again: " + who + " took over battery conditioning (" + state + ") " + waited / 1000
+                + " s after the car ended ours");
+        if (Precond.EGMP.equals(holder)) {
+            HmgApi.toast(this, "Battery conditioning: Android Auto's EV routing took over for the route to the charger, so it wasn't started again");
+        } else {
+            HmgApi.toast(this, "Battery conditioning: " + who + " took over, so it wasn't started again");
+        }
+        return true;
     }
 }

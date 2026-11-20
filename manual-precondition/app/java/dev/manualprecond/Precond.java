@@ -372,8 +372,42 @@ final class Precond {
 
     // ---- the automatic restart (setting "restart_after_route")
 
-    /** how long after the car ends it the start goes again (the route's handover settles first) */
-    static final long RESTART_DELAY_MS = 25000;
+    /**
+     * How long after the car ends it the start goes again. Long enough for egmp-aa-ev to take
+     * over: with an Android Auto route to a fast charger, its automatic start (with the real
+     * distance and time to the charger) comes within seconds of ours ending, and a restart of
+     * ours would hold conditioning and refuse its route values (seen on an Ioniq 6, CAN 260206).
+     */
+    static final long RESTART_DELAY_MS = 20000;
+    /** how often the wait checks whether another mod took conditioning over */
+    static final long RESTART_CHECK_MS = 2000;
+
+    /** AwsomeFox's Android Auto EV routing mod: automatic conditioning for a route to a charger */
+    static final String EGMP = "egmp-aa-ev";
+
+    /**
+     * HMG-API's {@code conditioning status}: { state, the mod holding the request or null }.
+     * Not cached, unlike the conditioning.state reading. Only once the owner has allowed
+     * "conditioning" for this mod (after an ok start): before that it would put HMG-API's
+     * question on screen (see the class comment).
+     */
+    static String[] status() throws IOException {
+        return parseStatus(HmgApi.connect().command("conditioning", "status"));
+    }
+
+    /** "ok active (egmp-aa-ev)" -> { "active", "egmp-aa-ev" }; "ok off" -> { "off", null } */
+    static String[] parseStatus(String line) {
+        String r = line.trim();   // HMG-API's Commands: "ok " + state + (holder == null ? "" : " (" + holder + ")")
+        if (r.startsWith("ok ")) r = r.substring(3);
+        int open = r.indexOf(" ("), close = r.lastIndexOf(')');
+        if (open > 0 && close > open) return new String[] { r.substring(0, open), r.substring(open + 2, close) };
+        return new String[] { r, null };
+    }
+
+    /** "egmp-aa-ev (Android Auto's EV routing)" for the log and notices */
+    static String holderName(String mod) {
+        return EGMP.equals(mod) ? "Android Auto's EV routing (egmp-aa-ev)" : mod;
+    }
 
     /** the car ending conditioning within this long of switching it on reads as a route starting, not the BMS done: 8 min on the EV6, 5 on the rest */
     static long restartWindowMs() {
