@@ -49,7 +49,7 @@ eng plan; check "plan" 0 $rc
 eng apply; check "apply" 0 $rc
 has "published as on" "1 of 1 mods on" "$out"
 has "in the state the app reads" '"manual-precondition"' "$(cat $R/data/hmgapi/public/state.json)"
-printf '{"tune_hold": "toggle", "wheel_star_hold": "open"}\n' > $R/data/hmgapi/settings/manual-precondition.json
+printf '{"wheel_star_hold": "toggle"}\n' > $R/data/hmgapi/settings/manual-precondition.json
 eng apply; check "a button setting change applies" 0 $rc
 eng remove manual-precondition; check "remove" 0 $rc
 eng apply; check "... and apply after it" 0 $rc
