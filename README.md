@@ -36,7 +36,6 @@ again until the next manual start (HMG-API's rule).
 | Where | What it does |
 |---|---|
 | **Precondition** tile in the app menu | The screen. It shows the state, the coldest pack temperature, READY, the Battery Conditioning setting, the indicator and charge, with **Start** and **Stop**. |
-| Hold **TUNE** (about 1 s) | Opens the screen by default. Setting *Holding the TUNE knob* can make it start/stop instead, or turn it off. A short press is still the car's. |
 | Hold the **steering wheel ☆** | Off by default. It can open the screen or start/stop. |
 | The car's **star key menu** | Two new entries: "Battery conditioning: start / stop" and "Battery conditioning: open". Pick one there for a short press of the ☆ key. |
 
