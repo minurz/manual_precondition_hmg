@@ -41,6 +41,8 @@ public class WatchService extends IntentService {
         Precond.Watch w = new Precond.Watch(SystemClock.elapsedRealtime());
         Precond.Status last = null;
         int misses = 0;
+        // HMG-API's cached conditioning.state can still be the one from before the start
+        SystemClock.sleep(Precond.READING_FRESH_MS + 200);
         while (GENERATION.get() == mine) {
             long now = SystemClock.elapsedRealtime();
             if (w.activeAt > 0 ? now - w.activeAt > ACTIVE_LIMIT_MS : now - w.startedAt > WAIT_LIMIT_MS) {

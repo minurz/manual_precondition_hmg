@@ -44,6 +44,13 @@ final class Precond {
     /** HMG-API's raw values: READY 1; Battery Conditioning setting 2 on, 1 off (HMG-API's Commands) */
     static final int READY_ON = 1, SETTING_ON = 2;
 
+    /**
+     * How long HMG-API serves a reading from its cache (its Vehicle.READINGS freshMs: 1000 ms
+     * for conditioning.state, 500 ms or more for the rest). A command doesn't clear that cache,
+     * so a read within this long of a start or stop can still show the state before it.
+     */
+    static final long READING_FRESH_MS = 1000;
+
     /** a second press within this long after a "pack is warm" refusal sends the start anyway */
     static final long WARM_CONFIRM_MS = 15000;
 
@@ -180,6 +187,13 @@ final class Precond {
      */
     static final class Watch {
         static final long TEMP_LOG_MS = 2 * 60 * 1000L;
+        /**
+         * After a start, a state other than the request's own (off, or an ended/timed_out
+         * left from before) is taken as the start not yet showing, for this long: past
+         * HMG-API's reading cache ({@link #READING_FRESH_MS}) with room to spare.
+         */
+        static final long GRACE_MS = 3000;
+        private boolean seen;   // the request's own state (waiting, requested, active) has shown
         final long startedAt;
         long activeAt, tempLoggedAt;
         boolean done;
@@ -192,11 +206,23 @@ final class Precond {
 
         String step(Status s, long now) {
             String notice = null;
+            boolean own = "waiting".equals(s.state) || "requested".equals(s.state) || "active".equals(s.state);
+            if (own) seen = true;
+            else if (!seen && now - startedAt < GRACE_MS) return null;   // the state from before the start (cached)
+            if (!seen) {   // past the grace: an ok start whose request never appeared (or was gone at once)
+                warn("the request never showed: HMG-API's state is " + s.state + " " + since(startedAt, now)
+                        + " after an ok start; " + snapshot(s));
+                done = true;
+                return null;
+            }
+
             if (failure == null) {
                 failure = s.failure;
-                if (!"0".equals(failure) && !"-".equals(failure)) warn("BMS conditioning failure flag is " + failure + " at the start");
+                if (failureSet(failure)) warn("BMS conditioning failure flag is " + failure + " at the start");
             } else if (!failure.equals(s.failure)) {
-                warn("BMS conditioning failure flag " + failure + " -> " + s.failure + ", " + since(startedAt, now) + " after the start");
+                String line = "BMS conditioning failure flag " + failure + " -> " + s.failure + ", " + since(startedAt, now) + " after the start";
+                if (failureSet(s.failure)) warn(line);
+                else log(line);
                 failure = s.failure;
             }
             if (startTemp == null) startTemp = s.tempC;
@@ -223,12 +249,9 @@ final class Precond {
                     notice = "Battery conditioning requested; this car's indicator can't be read, so there's no confirmation";
                     done = true;
                 } else if ("off".equals(state) || "stopping".equals(state)) {
-                    if (before != null) {
-                        log("the request ended (stopped by hand, the drive ended, or the mod was turned off) "
-                                + since(startedAt, now) + " after the start; pack " + trend(s.tempC));
-                    } else {
-                        log("no request running when the watch began (state " + state + ")");
-                    }
+                    log("the request ended (stopped by hand, another mod's stop, the drive ended, or the mod was turned off) "
+                            + since(startedAt, now) + " after the start, from " + before + "; indicator "
+                            + (s.indicator < 0 ? "–" : s.indicator == 1 ? "on" : "off") + ", pack " + trend(s.tempC));
                     done = true;
                 }
             }
@@ -243,6 +266,11 @@ final class Precond {
         void gaveUp(long now, Status last) {
             log("stopped watching " + since(startedAt, now) + " after the start (state " + state + "; pack "
                     + trend(last == null ? null : last.tempC) + ")");
+        }
+
+        /** the BMS flag holds a value that may mean a failure: not 0, and not "-" or -1 (not reported) */
+        private static boolean failureSet(String f) {
+            return f != null && !"0".equals(f) && !"-".equals(f) && !f.startsWith("-");
         }
 
         /** "12 °C -> 15 °C (+3 °C)", in °F and °C */

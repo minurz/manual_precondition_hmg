@@ -147,6 +147,16 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** after a start or stop: once HMG-API's cached reading has caught up (Precond.READING_FRESH_MS) */
+    private void refreshSoon() {
+        ui.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (shown) refresh();
+            }
+        }, Precond.READING_FRESH_MS + 200);
+    }
+
     private void show(Precond.Status s) {
         last = s;
         if (s.error != null) {
@@ -220,7 +230,7 @@ public class MainActivity extends Activity {
                         } else {
                             say("Not started: " + fWhy, RED);
                         }
-                        refresh();
+                        refreshSoon();
                     }
                 });
             }
@@ -250,7 +260,7 @@ public class MainActivity extends Activity {
                     public void run() {
                         startWarm = false;
                         say(fr, fc);
-                        refresh();
+                        refreshSoon();
                     }
                 });
             }
