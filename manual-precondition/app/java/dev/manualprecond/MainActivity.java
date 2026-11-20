@@ -238,7 +238,7 @@ public class MainActivity extends Activity {
 
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
-        buttons.setPadding(0, dp(28), 0, 0);
+        buttons.setPadding(0, dp(20), 0, 0);
         start = button("Start", CYAN);
         start.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -253,9 +253,9 @@ public class MainActivity extends Activity {
                 stopConditioning();
             }
         });
-        buttons.addView(start, new LinearLayout.LayoutParams(dp(300), dp(96)));
-        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(dp(300), dp(96));
-        gap.leftMargin = dp(24);
+        buttons.addView(start, new LinearLayout.LayoutParams(dp(240), dp(88)));
+        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(dp(240), dp(88));
+        gap.leftMargin = dp(16);
         buttons.addView(stop, gap);
         left.addView(buttons);
 
@@ -265,7 +265,7 @@ public class MainActivity extends Activity {
 
         LinearLayout right = column();
         right.setBackground(round(CARD, dp(16)));
-        right.setPadding(dp(32), dp(24), dp(32), dp(24));
+        right.setPadding(dp(32), dp(16), dp(32), dp(16));
         temp = row(right, "Battery temperature (coldest)");
         ready = row(right, "Car READY");
         setting = row(right, "Battery Conditioning (EV settings)");
@@ -288,9 +288,9 @@ public class MainActivity extends Activity {
     }
 
     private TextView row(LinearLayout parent, String name) {
-        parent.addView(label(name, 18, GREY, false));
-        TextView v = label("–", 26, TEXT, false);
-        v.setPadding(0, 0, 0, dp(14));
+        parent.addView(label(name, 16, GREY, false));
+        TextView v = label("–", 22, TEXT, false);
+        v.setPadding(0, 0, 0, dp(8));
         parent.addView(v);
         return v;
     }
