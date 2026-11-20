@@ -1,7 +1,7 @@
 # Manual Preconditioning (HMG-API mod)
 
 Start and stop battery conditioning by hand on a Gen5W E-GMP car, with no navigation
-route: from an app-menu tile, by holding the TUNE knob, or from a star key. Made for the
+route: from an app-menu tile, or from a star key. Made for the
 **Hyundai Ioniq 6 (CEEV) on 260903**, and offered on the other E-GMP head units HMG-API
 maps (Ioniq 5 `NEEV`/`NEEV23`/`NEEV23SE`, EV6 `CVEV`).
 
