@@ -29,7 +29,15 @@
       "default": true,
       "title": "Notices when conditioning starts, times out or ends",
       "apply": "live",
-      "description": "After a start, watches the car's conditioning indicator for up to 6 minutes and shows the car's own notice when it comes on, or when HMG-API gives up on it."
+      "description": "After a start, shows the car's own notice when its conditioning indicator comes on, when HMG-API gives up on it, or when the car ends it. The mod's Log (Mods, Manual Preconditioning) records all of it either way."
+    },
+    {
+      "key": "restart_after_route",
+      "type": "toggle",
+      "default": false,
+      "title": "Start again when a route cancels it",
+      "apply": "live",
+      "description": "The car cancels battery conditioning when an Android Auto route starts guiding. When the car ends it within 5 minutes of switching it on (8 on the EV6), with the battery still under the warm limit, the mod starts it once more. Once per press."
     },
     {
       "key": "units",

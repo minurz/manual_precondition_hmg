@@ -224,7 +224,7 @@ public class MainActivity extends Activity {
                         } else if (Precond.warmRefusal(fWhy)) {
                             startWarm = true;
                             say("The battery is already warm (" + Precond.temperature(last == null ? null : last.tempC, units)
-                                    + "), so the car may not heat it. Tap Start anyway to send the request regardless.", AMBER);
+                                    + "), so the car may not heat it. Tap Start anyway to request regardless.", AMBER);
                         } else if (Precond.ownerQuestion(fWhy)) {
                             say("HMG-API is asking whether Manual Preconditioning may use \"conditioning\": allow it, then tap Start again.", AMBER);
                         } else {
@@ -324,7 +324,7 @@ public class MainActivity extends Activity {
         right.setPadding(28, 16, 28, 8);
         temp = row(right, "Battery temperature (coldest)");
         ready = row(right, "Car READY");
-        setting = row(right, "Battery Conditioning (EV settings)");
+        setting = row(right, "Conditioning enabled (EV settings)");
         indicator = row(right, "Conditioning indicator");
         soc = row(right, "State of charge");
 

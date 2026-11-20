@@ -195,13 +195,21 @@ final class Precond {
         static final long GRACE_MS = 3000;
         private boolean seen;   // the request's own state (waiting, requested, active) has shown
         final long startedAt;
-        long activeAt, tempLoggedAt;
+        /** this watch follows an automatic restart (one per press) */
+        final boolean restarted;
+        long activeAt, tempLoggedAt, endedAt;
         boolean done;
         private String state, failure;
         private Integer startTemp;
 
-        Watch(long now) {
+        Watch(long now, boolean restarted) {
             startedAt = now;
+            this.restarted = restarted;
+        }
+
+        /** the car turned its indicator off after it had been on (HMG-API's "ended") */
+        boolean endedByCar() {
+            return done && "ended".equals(state) && activeAt > 0;
         }
 
         String step(Status s, long now) {
@@ -240,6 +248,7 @@ final class Precond {
                     notice = "The car didn't start battery conditioning within " + timeoutMinutes() + " minutes; the request was stopped";
                     done = true;
                 } else if ("ended".equals(state)) {
+                    endedAt = now;
                     log("the car ended conditioning (indicator off) after " + since(activeAt > 0 ? activeAt : startedAt, now)
                             + "; pack " + trend(s.tempC));
                     notice = "The car ended battery conditioning";
@@ -269,7 +278,7 @@ final class Precond {
         }
 
         /** the BMS flag holds a value that may mean a failure: not 0, and not "-" or -1 (not reported) */
-        private static boolean failureSet(String f) {
+        static boolean failureSet(String f) {
             return f != null && !"0".equals(f) && !"-".equals(f) && !f.startsWith("-");
         }
 
@@ -321,6 +330,10 @@ final class Precond {
         return settings.optBoolean("notices", true);
     }
 
+    static boolean restartAfterRoute(JSONObject settings) {
+        return settings.optBoolean("restart_after_route", true);
+    }
+
     static String temperature(Integer c, String units) {
         if (c == null) return "–";
         long f = Math.round(c * 9 / 5.0 + 32);
@@ -350,6 +363,38 @@ final class Precond {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    /** HMG-API's "pack is warm" limit for this car (its Commands.warmC), °C: Ioniq 5 21, EV6 and Ioniq 6 20 */
+    static int warmLimitC() {
+        return model().startsWith("NEEV") ? 21 : 20;
+    }
+
+    // ---- the automatic restart (setting "restart_after_route")
+
+    /** how long after the car ends it the start goes again (the route's handover settles first) */
+    static final long RESTART_DELAY_MS = 4000;
+
+    /** the car ending conditioning within this long of switching it on reads as a route starting, not the BMS done: 8 min on the EV6, 5 on the rest */
+    static long restartWindowMs() {
+        return ("CVEV".equals(model()) ? 8 : 5) * 60 * 1000L;
+    }
+
+    /**
+     * Why the request the car just ended isn't started again, or null to start it again:
+     * the car ended it (not a stop, a timeout or the drive ending), this press hasn't been
+     * restarted already, it had been on for less than {@link #restartWindowMs}, the pack is
+     * still below the warm limit, and the BMS's failure flag isn't set.
+     */
+    static String restartBlocker(Watch w, Status s) {
+        if (!w.endedByCar()) return "the car didn't end it";
+        if (w.restarted) return "already restarted once for this start";
+        long on = w.endedAt - w.activeAt;
+        if (on >= restartWindowMs()) return "it was on for " + (on / 60000) + " min, past the " + (restartWindowMs() / 60000) + " min window";
+        if (s.tempC == null) return "the pack temperature isn't known";
+        if (s.tempC >= warmLimitC()) return "the pack is warm (" + temperature(s.tempC, "both") + ")";
+        if (Watch.failureSet(s.failure)) return "the BMS failure flag is " + s.failure;
+        return null;
     }
 
     /** HMG-API's activation timeout for this car (its Commands.activationMs), in minutes */
