@@ -2,19 +2,6 @@
   "version": 1,
   "settings": [
     {
-      "key": "tune_hold",
-      "type": "choice",
-      "default": "open",
-      "title": "Holding the TUNE knob",
-      "apply": "rebuild",
-      "description": "Held about a second. A short press still does what the car does. Takes effect at the next Apply changes.",
-      "options": [
-        { "value": "open", "title": "Opens the Precondition screen (as Launchpad does)" },
-        { "value": "toggle", "title": "Starts conditioning, or stops it if it's running (a notice says which)" },
-        { "value": "off", "title": "Off (the car keeps its own TUNE hold)" }
-      ]
-    },
-    {
       "key": "wheel_star_hold",
       "type": "choice",
       "default": "off",
@@ -22,9 +9,18 @@
       "apply": "rebuild",
       "description": "A short press stays what you pick in the car's own star key menu, which also lists \"Battery conditioning: start / stop\" and \"Battery conditioning: open\". Takes effect at the next Apply changes.",
       "options": [
-        { "value": "open", "title": "Opens the Precondition screen" },
-        { "value": "toggle", "title": "Starts conditioning, or stops it if it's running" },
-        { "value": "off", "title": "Off" }
+        {
+          "value": "open",
+          "title": "Opens the Precondition screen"
+        },
+        {
+          "value": "toggle",
+          "title": "Starts conditioning, or stops it if it's running"
+        },
+        {
+          "value": "off",
+          "title": "Off"
+        }
       ]
     },
     {
@@ -42,9 +38,18 @@
       "title": "Battery temperature units",
       "apply": "live",
       "options": [
-        { "value": "both", "title": "°F and °C" },
-        { "value": "f", "title": "°F" },
-        { "value": "c", "title": "°C" }
+        {
+          "value": "both",
+          "title": "°F and °C"
+        },
+        {
+          "value": "f",
+          "title": "°F"
+        },
+        {
+          "value": "c",
+          "title": "°C"
+        }
       ]
     }
   ]

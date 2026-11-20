@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dev.manualprecond"
-    android:versionCode="2"
-    android:versionName="0.1.1">
+    android:versionCode="3"
+    android:versionName="0.1.2">
 
     <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="19" />
 
@@ -12,7 +12,7 @@
         android:theme="@android:style/Theme.Holo.NoActionBar">
 
         <!-- The Precondition screen. HMG-API opens it from the app-menu tile (mod.json
-             provides.launcher), a TUNE or star-key hold (input "open") and the star key menu.
+             provides.launcher), a wheel star hold (input "open") and the star key menu.
              No LAUNCHER category: the tile is HMG-API's, so the stock launcher shows no second one. -->
         <activity
             android:name=".MainActivity"
@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Start/stop without opening the screen: a TUNE or wheel-star hold (mod.json input
+        <!-- Start/stop without opening the screen: a wheel star hold (mod.json input
              "broadcast") and the star key menu entry (provides.star_key). HMG-API's own checks
              apply to every start, whoever sends this. -->
         <receiver android:name=".ToggleReceiver" android:exported="true">

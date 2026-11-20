@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -19,9 +20,8 @@ import java.util.concurrent.Executors;
 
 /**
  * The Precondition screen: HMG-API's conditioning state, the checks a start needs, and
- * Start / Stop. Built in code (the head unit's 1920x720 screen, the TUNE knob moves the
- * focus between the buttons). Readings refresh every 2 s while it's on screen; every
- * hmgapid call runs on one background thread.
+ * Start / Stop. Built in code, on a FitFrame canvas scaled to the window. Readings refresh
+ * every 2 s while it's on screen; every hmgapid call runs on one background thread.
  */
 public class MainActivity extends Activity {
     static final long REFRESH_MS = 2000;
@@ -117,9 +117,8 @@ public class MainActivity extends Activity {
         state.setText(s.carOnItsOwn() ? "Conditioning (started by the car)" : Precond.stateText(s.state));
         state.setTextColor(color(s));
         temp.setText(Precond.temperature(s.tempC, units));
-        ready.setText(s.ready < 0 ? "–" : s.ready == Precond.READY_ON ? "Yes" : "No: switch the car to READY");
-        setting.setText(s.setting < 0 ? "–" : s.setting == Precond.SETTING_ON ? "On"
-                : "Off: turn on Battery Conditioning in the car's EV settings");
+        ready.setText(s.ready < 0 ? "–" : s.ready == Precond.READY_ON ? "Yes" : "No: switch to READY");
+        setting.setText(s.setting < 0 ? "–" : s.setting == Precond.SETTING_ON ? "On" : "Off: turn it on in EV settings");
         indicator.setText(s.indicator < 0 ? "–" : s.indicator == 1 ? "On" : "Off");
         soc.setText("-".equals(s.soc) ? "–" : s.soc + " %");
 
@@ -220,25 +219,27 @@ public class MainActivity extends Activity {
         message.setTextColor(color);
     }
 
-    // ---- layout
+    // ---- layout. Sizes are FitFrame canvas pixels (the canvas is 520 tall), not dp or sp:
+    // FitFrame scales the whole screen to the window, so the head unit's density and font
+    // scale can't make it overflow. Text has line limits, so nothing grows past its room.
 
     private View build() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setBackgroundColor(BG);
-        root.setPadding(dp(48), dp(32), dp(48), dp(32));
+        root.setPadding(40, 28, 40, 28);
 
         LinearLayout left = column();
-        left.addView(label("Battery conditioning", 24, GREY, false));
-        state = label("…", 40, TEXT, true);
+        left.addView(label("Battery conditioning", 22, GREY, false, 1));
+        state = label("…", 36, TEXT, true, 2);
         left.addView(state);
-        message = label("", 22, GREY, false);
-        message.setPadding(0, dp(12), 0, 0);
+        message = label("", 20, GREY, false, 3);
+        message.setPadding(0, 10, 0, 0);
         left.addView(message);
 
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
-        buttons.setPadding(0, dp(20), 0, 0);
+        buttons.setPadding(0, 18, 0, 0);
         start = button("Start", CYAN);
         start.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -253,31 +254,37 @@ public class MainActivity extends Activity {
                 stopConditioning();
             }
         });
-        buttons.addView(start, new LinearLayout.LayoutParams(dp(240), dp(88)));
-        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(dp(240), dp(88));
-        gap.leftMargin = dp(16);
+        // the two buttons share the column's width: they can't run into the panel beside it
+        buttons.addView(start, new LinearLayout.LayoutParams(0, 80, 1f));
+        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(0, 80, 1f);
+        gap.leftMargin = 16;
         buttons.addView(stop, gap);
-        left.addView(buttons);
+        left.addView(buttons, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        hint = label("", 18, GREY, false);
-        hint.setPadding(0, dp(24), 0, 0);
+        hint = label("", 17, GREY, false, 3);
+        hint.setPadding(0, 16, 0, 0);
         left.addView(hint);
 
         LinearLayout right = column();
-        right.setBackground(round(CARD, dp(16)));
-        right.setPadding(dp(32), dp(16), dp(32), dp(16));
+        right.setBackground(round(CARD, 16));
+        right.setPadding(28, 16, 28, 8);
         temp = row(right, "Battery temperature (coldest)");
         ready = row(right, "Car READY");
         setting = row(right, "Battery Conditioning (EV settings)");
         indicator = row(right, "Conditioning indicator");
         soc = row(right, "State of charge");
 
-        root.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.1f));
+        root.addView(left, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.15f));
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        rp.leftMargin = dp(40);
+        rp.leftMargin = 36;
         rp.gravity = Gravity.CENTER_VERTICAL;
         root.addView(right, rp);
-        return root;
+
+        FitFrame fit = new FitFrame(this);
+        fit.setBackgroundColor(BG);
+        fit.addView(root);
+        return fit;
     }
 
     private LinearLayout column() {
@@ -288,18 +295,23 @@ public class MainActivity extends Activity {
     }
 
     private TextView row(LinearLayout parent, String name) {
-        parent.addView(label(name, 16, GREY, false));
-        TextView v = label("–", 22, TEXT, false);
-        v.setPadding(0, 0, 0, dp(8));
+        parent.addView(label(name, 16, GREY, false, 1));
+        TextView v = label("–", 22, TEXT, false, 1);
+        v.setPadding(0, 0, 0, 8);
         parent.addView(v);
         return v;
     }
 
-    private TextView label(String text, int sp, int color, boolean bold) {
+    /** px: FitFrame canvas pixels; lines: the most it may take (it ends in … past that) */
+    private TextView label(String text, int px, int color, boolean bold, int lines) {
         TextView t = new TextView(this);
         t.setText(text);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, px);
         t.setTextColor(color);
+        t.setIncludeFontPadding(false);
+        t.setLineSpacing(px * 0.2f, 1f);
+        t.setMaxLines(lines);
+        t.setEllipsize(TextUtils.TruncateAt.END);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
         return t;
     }
@@ -308,16 +320,22 @@ public class MainActivity extends Activity {
         Button b = new Button(this);
         b.setText(text);
         b.setAllCaps(false);
-        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_PX, 28);
         b.setTextColor(Color.WHITE);
+        b.setSingleLine(true);
+        b.setPadding(8, 0, 8, 0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
         b.setFocusable(true);
         StateListDrawable bg = new StateListDrawable();
-        GradientDrawable focused = round(color, dp(14));
-        focused.setStroke(dp(4), Color.WHITE);   // the TUNE knob's focus
-        bg.addState(new int[] { -android.R.attr.state_enabled }, round(0xff2a323b, dp(14)));
-        bg.addState(new int[] { android.R.attr.state_pressed }, round(darker(color), dp(14)));
+        GradientDrawable focused = round(color, 14);
+        focused.setStroke(4, Color.WHITE);   // focus (the rotary controller)
+        bg.addState(new int[] { -android.R.attr.state_enabled }, round(0xff2a323b, 14));
+        bg.addState(new int[] { android.R.attr.state_pressed }, round(darker(color), 14));
         bg.addState(new int[] { android.R.attr.state_focused }, focused);
-        bg.addState(new int[] {}, round(color, dp(14)));
+        bg.addState(new int[] {}, round(color, 14));
         b.setBackground(bg);
         return b;
     }
@@ -331,9 +349,5 @@ public class MainActivity extends Activity {
 
     private static int darker(int c) {
         return Color.rgb(Color.red(c) * 3 / 4, Color.green(c) * 3 / 4, Color.blue(c) * 3 / 4);
-    }
-
-    private int dp(int v) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()));
     }
 }

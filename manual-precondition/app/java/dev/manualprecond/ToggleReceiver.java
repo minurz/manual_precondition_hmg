@@ -7,7 +7,7 @@ import android.content.Intent;
 import hmgapi.client.HmgApi;
 
 /**
- * A TUNE or wheel-star hold (mod.json "input", setting "toggle") or the star key menu's
+ * A steering wheel star hold (mod.json "input", setting "toggle") or the star key menu's
  * "Battery conditioning: start / stop": starts conditioning, or stops the request that's
  * running. The answer is the car's own notice. A warm-pack refusal can be overridden by
  * the same press again within 15 s.

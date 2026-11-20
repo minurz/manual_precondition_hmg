@@ -166,7 +166,7 @@ final class Precond {
         return "CVEV".equals(model()) ? 5 : 2;
     }
 
-    // ---- "start anyway" after a warm-pack refusal (the TUNE/star toggle has no screen to ask on)
+    // ---- "start anyway" after a warm-pack refusal (the star key toggle has no screen to ask on)
 
     static void warmRefused(Context c) {
         prefs(c).edit().putLong("warm_refused_at", System.currentTimeMillis()).commit();
