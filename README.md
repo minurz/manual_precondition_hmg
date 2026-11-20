@@ -5,9 +5,9 @@ route: from an app-menu tile, by holding the TUNE knob, or from a star key. Made
 **Hyundai Ioniq 6 (CEEV) on 260903**, and offered on the other E-GMP head units HMG-API
 maps (Ioniq 5 `NEEV`/`NEEV23`/`NEEV23SE`, EV6 `CVEV`).
 
-> **Not yet run on a car.** The app compiles against Android 4.4 (API 19) and the mod
-> validates against HMG-API's rules, but nobody has pressed Start in an Ioniq 6 with it.
-> You use it at your own risk. Not affiliated with Hyundai, Kia, HMG-API or Launchpad.
+> **NOT FULLY TESTED.** The app compiles against Android 4.4 (API 19) and the mod
+> validates against HMG-API's rules, but hasn't been extensively tested. BMS preconditioning not confirmed.
+> You use it at your own risk. Not affiliated with HMG.
 
 ## How it works
 
@@ -50,9 +50,7 @@ Setting *Notices* turns those off.
 
 ## Before you rely on it
 
-On one 2022 Ioniq 5 on 260903, the car reports Battery Conditioning as not enabled even
-with Winter Mode on, so every start is refused. Check yours first: open the screen with the
-car in READY. "Battery Conditioning (EV settings)" should say **On**. Or check over adb:
+Open the screen with the car in READY. "Battery Conditioning (EV settings)" should say **On**. Or check over adb:
 
 ```sh
 hmgapid vehicle hv.ready hv.conditioning hv.battery_temp_min hv.conditioning_active
@@ -63,34 +61,6 @@ hmgapid vehicle-do conditioning stop
 
 `hv.conditioning` must read `2`. `hv.battery_temp_min` should be under 20 °C. A warm pack is
 the most common reason the car doesn't heat.
-
-## Getting the package
-
-The APK is built by HMG-API's own build, with Google's Android SDK, on GitHub Actions:
-
-1. Push. The **CI** workflow (HMG-API's reusable mod workflow) builds the APK, runs
-   `manual-precondition/test.sh`, and uploads **mod-test-packages**:
-   - `manual-precondition-0.1.0.zip`: the HMG-API package, for a USB stick's `HMGAPI/updates/`
-     or adb;
-   - `manual-precondition-0.1.0-nemesis.zip`: unzip it onto an empty stick for NEMESIS.
-
-   These are signed with a throwaway key. Remove the mod before installing a later test build.
-2. For releases you can update in place, make an author key once:
-   `java -cp "$HMGAPI_SDK/lib/hmgapi-engine.jar" hmgapi.engine.Signing keygen author.key`.
-   Store its contents as the repository secret `HMGAPI_AUTHOR_KEY`, then publish a GitHub
-   release tagged `v0.1.0`. The **Release** workflow signs the packages and attaches them.
-
-On your own machine, with the HMG-API mod SDK in `$HMGAPI_SDK` and the Android SDK in
-`ANDROID_HOME`:
-
-```sh
-sh $HMGAPI_SDK/bin/build-mod.sh manual-precondition out/build/manual-precondition
-HMGAPI_MOD_BUILD=$PWD/out/build/manual-precondition sh manual-precondition/test.sh
-sh $HMGAPI_SDK/bin/mkmodpkg.sh manual-precondition author.key
-```
-
-`hmgapi-sdk.json` and the workflow ref in `ci.yml` pin the same HMG-API commit. Move both
-together, to `{"version": "1.1.0", "sha256": "…"}` and `@v1.1.0` once that release is out.
 
 ## Layout
 
@@ -109,10 +79,6 @@ manual-precondition/
 
 ## Things to check in the car
 
-- **TUNE on the Ioniq 6.** HMG-API binds `tune_enter`, the car's `KEYCODE_TUNE_ENTER`.
-  Launchpad's porting kit recorded the CEEV's TUNE hold on its main input device. That's
-  expected to be the same key, but confirm it: hold TUNE and the screen should open. If it
-  doesn't, `hmgapid service-log hmgapi` says what the input reader saw.
 - **Is activation reported?** On 260903, see whether `active` arrives and the car's battery
   icon shows conditioning.
 - **The start/stop broadcast** (`dev.manualprecond.TOGGLE`) is open to other apps on the head
