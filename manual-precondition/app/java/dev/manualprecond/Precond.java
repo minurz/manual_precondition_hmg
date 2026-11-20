@@ -373,7 +373,7 @@ final class Precond {
     // ---- the automatic restart (setting "restart_after_route")
 
     /** how long after the car ends it the start goes again (the route's handover settles first) */
-    static final long RESTART_DELAY_MS = 4000;
+    static final long RESTART_DELAY_MS = 25000;
 
     /** the car ending conditioning within this long of switching it on reads as a route starting, not the BMS done: 8 min on the EV6, 5 on the rest */
     static long restartWindowMs() {
